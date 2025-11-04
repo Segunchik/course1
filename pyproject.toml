@@ -28,6 +28,10 @@ black = "^25.9.0"
 mypy = "^1.18.2"
 
 
+
+[tool.poetry.group.lint.dependencies]
+black = "^25.9.0"
+
 [tool.mypy]
 disallow_untyped_defs = true
 warn_return_any = true
@@ -38,7 +42,14 @@ exclude = ["venv",".venv"]
 # Максимальная длина строки
 line-length = 119
 # Файлы, которые не нужно форматировать
-exclude = [".git", ".venv"]
+exclude = '''
+(
+    /(
+        \.git     # исключить директорию Git
+    |   \.venv    # исключить виртуальное окружение
+    )
+)
+'''
 
 
 [tool.isort]
