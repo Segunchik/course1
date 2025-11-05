@@ -1,11 +1,19 @@
 import json
+import os
 from datetime import datetime
 from pathlib import Path
 from pprint import pprint
-from typing import Any
+from typing import Any, Dict, List
 
 import pandas as pd
+import requests
+import yfinance as yf
+from dotenv import load_dotenv
 from pandas import DataFrame
+
+load_dotenv()
+
+API_KEY_EXCHANGE: str | None = os.getenv("API_KEY_EXCHANGE")
 
 
 def greeting_by_time_of_day() -> str:
@@ -50,7 +58,6 @@ def load_user_settings(file_path: str = "../user_settings.json") -> dict[Any, An
     :return: словарь, с содержимым JSON файла
     """
     path = Path(file_path)
-    print(path)
     if not path.exists():
         print("Файл не найден")
         return {}
@@ -84,6 +91,95 @@ def get_operation_for_period_from_excel(
         print(f"Ошибка при чтении файла: {str(er)}")
 
 
+def get_expenses_by_card(filtered_df: pd.DataFrame) -> list[dict]:
+    """
+    Функция принимает DataFrame с операциями и возвращает список словарей с суммарными расходами и суммарным
+    кэшбэком по каждой карте
+    :param filtered_df: DataFrame c операциями
+    :return:
+    """
+    try:
+        filtered_df["Номер карты"] = filtered_df["Номер карты"].str.replace(r"\D", "", regex=True)
+        expenses_df = filtered_df[filtered_df["Сумма операции"] < 0]
+        result_expenses = (
+            expenses_df.groupby("Номер карты")
+            .agg(total_expenses=("Сумма операции с округлением", "sum"), cashback=("Кэшбэк", "sum"))
+            .reset_index()
+        )
+        result_expenses.columns = ["card_num", "total_expenses", "cashback"]
+        return result_expenses.to_dict(orient="records")
+
+    except ValueError as ve:
+        print(ve)
+        return []
+
+
+def get_top5_transaction(filtered_df: pd.DataFrame) -> List[Dict]:
+    """
+    Функция получает DataFrame с транзакциями и возвращает список топ-5
+    :param filtered_df:
+    :return:
+    """
+    try:
+        top_5 = filtered_df.sort_values(by="Сумма операции с округлением", ascending=False).head(5)
+        columns = ["Дата платежа", "Сумма операции", "Категория", "Описание"]
+        top_5_transactions = top_5[columns]
+        top_5_transactions.columns = ["date", "amount", "category", "description"]
+        return top_5_transactions.to_dict(orient="records")
+    except Exception as ex:
+        print(ex)
+
+
+def get_currency_rate() -> List[Dict]:
+    """
+    Функция возвращает список с курсами валют
+    """
+    user_currency: list = load_user_settings()["user_currencies"]
+    print(user_currency)
+    result = []
+    headers: dict = {"apikey": API_KEY_EXCHANGE}
+    print(headers)
+    for currency in user_currency:
+        try:
+            resp = requests.request(
+                "GET",
+                f"https://api.apilayer.com/exchangerates_data/latest?symbols=RUB&base={currency}",
+                headers=headers,
+                data={},
+            )
+            data = resp.json()
+            rate = data.get("rates", {}).get("RUB")
+            result.append({"currency": currency, "rates": round(rate, 2)})
+        except Exception as e:
+            print(e)
+    return result
+
+
+def get_stock_prices() -> List[Dict]:
+    """
+    Функция возвращает стоимость акций из списка в файле user_settings.json
+    """
+    user_stocks: list = load_user_settings()["user_stocks"]
+    data = yf.Tickers(user_stocks)
+    stock_prices_list = []
+
+    for stock in data.tickers:
+        try:
+            stock_info = {"stock": stock, "price": round(data.tickers[stock].info["currentPrice"], 2)}
+
+            stock_prices_list.append(stock_info)
+
+        except KeyError as ke:
+            print(f"Отсутствуют данные для {stock}: {ke}")
+        except Exception as e:
+            print(f"Ошибка при получении данных для {stock}: {e}")
+    return stock_prices_list
+
+
 # print(get_first_day_of_month('10.10.2020 10:10:10'))
 
-pprint(get_operation_for_period_from_excel())
+# get_expenses_by_card(get_operation_for_period_from_excel())
+# get_top5_transaction(get_operation_for_period_from_excel())
+# pprint(get_top5_transaction(get_operation_for_period_from_excel()))
+# print(get_currency_rate())
+print(get_stock_prices())
