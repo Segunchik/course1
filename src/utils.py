@@ -11,8 +11,8 @@ import yfinance as yf
 from dotenv import load_dotenv
 from pandas import DataFrame
 
-load_dotenv()
 
+load_dotenv()
 API_KEY_EXCHANGE: str | None = os.getenv("API_KEY_EXCHANGE")
 
 
@@ -51,13 +51,15 @@ def get_first_day_of_month(date_str: str) -> str:
     return date_format
 
 
-def load_user_settings(file_path: str = "../user_settings.json") -> dict[Any, Any]:
+def load_user_settings(file_path: str = "user_settings.json") -> dict:
     """
     Функция загружает пользовательские настройки из JSON файла
     :param file_path: путь к JSON файлу
     :return: словарь, с содержимым JSON файла
     """
-    path = Path(file_path)
+    current_dir = Path(__file__).parent
+    root_dir = current_dir.parent
+    path = root_dir / file_path
     if not path.exists():
         print("Файл не найден")
         return {}
@@ -86,7 +88,8 @@ def get_operation_for_period_from_excel(
     except FileNotFoundError:
         print("Файл не найден")
     except ValueError as er:
-        print(f"Лист с указанным именем не найден {er}")
+        print(f"Неверный формат даты: {er}")
+        raise
     except Exception as er:
         print(f"Ошибка при чтении файла: {str(er)}")
 
@@ -120,38 +123,68 @@ def get_top5_transaction(filtered_df: pd.DataFrame) -> List[Dict]:
     :param filtered_df:
     :return:
     """
+    required_columns = ["Дата платежа", "Сумма операции", "Сумма операции с округлением", "Категория", "Описание"]
+    # Проверяем наличие всех обязательных столбцов
+    missing_cols = [col for col in required_columns if col not in filtered_df.columns]
+    if missing_cols:
+        raise ValueError(f"Входной DataFrame не содержит необходимые столбцы: {missing_cols}")
+
+    # Проверка корректности типов данных
+    numeric_columns = ["Сумма операции", "Сумма операции с округлением"]
+    # Пропустить проверку типов, если DataFrame пустой
+    if not filtered_df.empty:
+        for column in numeric_columns:
+            if not pd.api.types.is_numeric_dtype(filtered_df[column]):
+                raise TypeError(f"Содержимое столбца '{column}' должно быть числовым.")
+
     try:
-        top_5 = filtered_df.sort_values(by="Сумма операции с округлением", ascending=False).head(5)
+        top_5 = filtered_df.sort_values(by="Сумма операции с округлением", ascending=True).head(5)
         columns = ["Дата платежа", "Сумма операции", "Категория", "Описание"]
         top_5_transactions = top_5[columns]
         top_5_transactions.columns = ["date", "amount", "category", "description"]
         return top_5_transactions.to_dict(orient="records")
     except Exception as ex:
         print(ex)
+        return ex
 
 
 def get_currency_rate() -> List[Dict]:
     """
     Функция возвращает список с курсами валют
     """
-    user_currency: list = load_user_settings()["user_currencies"]
-    print(user_currency)
+    url = f"https://api.currencyapi.com/v3/latest"
+#    url = f"https://api.apilayer.com/exchangerates_data/latest"
+    load_currency = load_user_settings()
+    pprint(load_currency)
+    user_currency = load_currency.get("user_currencies")
+    pprint(user_currency)
+    if not user_currency:
+        return []
     result = []
-    headers: dict = {"apikey": API_KEY_EXCHANGE}
-    print(headers)
+    if not API_KEY_EXCHANGE:
+        raise EnvironmentError("API_KEY_EXCHANGE environment variable is not set.")
+    header = {"apikey": API_KEY_EXCHANGE}
+
     for currency in user_currency:
         try:
-            resp = requests.request(
-                "GET",
-                f"https://api.apilayer.com/exchangerates_data/latest?symbols=RUB&base={currency}",
-                headers=headers,
-                data={},
+            params = {"apikey": API_KEY_EXCHANGE, "currencies": currency, "base_currency": "RUB"}
+            resp = requests.get(
+                url,
+                params=params,
             )
+            resp.raise_for_status()
             data = resp.json()
-            rate = data.get("rates", {}).get("RUB")
-            result.append({"currency": currency, "rates": round(rate, 2)})
-        except Exception as e:
-            print(e)
+            pprint(data)
+            rate = 1/data.get("data", {}).get(currency, {}).get("value", 0)
+            print("rate", rate)
+            result.append({"currency": currency, "rate": round(rate, 2)})
+            pprint(result)
+        except requests.RequestException as req_err:
+            print(f"Request error occurred: {req_err}")
+            return []
+        except Exception as err:
+            print(f"An unexpected error occurred: {err}")
+            return []
     return result
 
 
@@ -159,8 +192,13 @@ def get_stock_prices() -> List[Dict]:
     """
     Функция возвращает стоимость акций из списка в файле user_settings.json
     """
-    user_stocks: list = load_user_settings()["user_stocks"]
-    data = yf.Tickers(user_stocks)
+    current_dir = Path(__file__).parent
+    root_dir = current_dir.parent
+    file_path = root_dir / "user_settings.json"
+
+
+    user_stocks = load_user_settings()
+    data = yf.Tickers(user_stocks["user_stocks"])
     stock_prices_list = []
 
     for stock in data.tickers:
@@ -177,9 +215,10 @@ def get_stock_prices() -> List[Dict]:
 
 
 # print(get_first_day_of_month('10.10.2020 10:10:10'))
-
+# print(load_user_settings())
 # get_expenses_by_card(get_operation_for_period_from_excel())
 # get_top5_transaction(get_operation_for_period_from_excel())
 # pprint(get_top5_transaction(get_operation_for_period_from_excel()))
-# print(get_currency_rate())
-print(get_stock_prices())
+print(get_currency_rate())
+# pprint(get_stock_prices())
+# pprint(load_user_settings())
