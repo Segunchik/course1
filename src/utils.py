@@ -2,15 +2,13 @@ import json
 import os
 from datetime import datetime
 from pathlib import Path
-from pprint import pprint
-from typing import Any, Dict, List
+from typing import Dict, List
 
 import pandas as pd
 import requests
 import yfinance as yf
 from dotenv import load_dotenv
 from pandas import DataFrame
-
 
 load_dotenv()
 API_KEY_EXCHANGE: str | None = os.getenv("API_KEY_EXCHANGE")
@@ -152,33 +150,23 @@ def get_currency_rate() -> List[Dict]:
     """
     Функция возвращает список с курсами валют
     """
-    url = f"https://api.currencyapi.com/v3/latest"
-#    url = f"https://api.apilayer.com/exchangerates_data/latest"
+    url = "https://api.currencyapi.com/v3/latest"
     load_currency = load_user_settings()
-    pprint(load_currency)
     user_currency = load_currency.get("user_currencies")
-    pprint(user_currency)
     if not user_currency:
         return []
     result = []
     if not API_KEY_EXCHANGE:
         raise EnvironmentError("API_KEY_EXCHANGE environment variable is not set.")
-    header = {"apikey": API_KEY_EXCHANGE}
 
     for currency in user_currency:
         try:
             params = {"apikey": API_KEY_EXCHANGE, "currencies": currency, "base_currency": "RUB"}
-            resp = requests.get(
-                url,
-                params=params,
-            )
+            resp = requests.get(url, params=params)
             resp.raise_for_status()
             data = resp.json()
-            pprint(data)
-            rate = 1/data.get("data", {}).get(currency, {}).get("value", 0)
-            print("rate", rate)
+            rate = 1 / data.get("data", {}).get(currency, {}).get("value", 0)
             result.append({"currency": currency, "rate": round(rate, 2)})
-            pprint(result)
         except requests.RequestException as req_err:
             print(f"Request error occurred: {req_err}")
             return []
@@ -192,10 +180,6 @@ def get_stock_prices() -> List[Dict]:
     """
     Функция возвращает стоимость акций из списка в файле user_settings.json
     """
-    current_dir = Path(__file__).parent
-    root_dir = current_dir.parent
-    file_path = root_dir / "user_settings.json"
-
 
     user_stocks = load_user_settings()
     data = yf.Tickers(user_stocks["user_stocks"])
@@ -204,7 +188,6 @@ def get_stock_prices() -> List[Dict]:
     for stock in data.tickers:
         try:
             stock_info = {"stock": stock, "price": round(data.tickers[stock].info["currentPrice"], 2)}
-
             stock_prices_list.append(stock_info)
 
         except KeyError as ke:
@@ -218,7 +201,7 @@ def get_stock_prices() -> List[Dict]:
 # print(load_user_settings())
 # get_expenses_by_card(get_operation_for_period_from_excel())
 # get_top5_transaction(get_operation_for_period_from_excel())
-# pprint(get_top5_transaction(get_operation_for_period_from_excel()))
-print(get_currency_rate())
+# print(get_top5_transaction(get_operation_for_period_from_excel()))
+# print(get_currency_rate())
 # pprint(get_stock_prices())
 # pprint(load_user_settings())
