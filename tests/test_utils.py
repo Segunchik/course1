@@ -42,22 +42,22 @@ def test_greeting_night():
 
 def test_get_first_day_of_month():
     # Тест с обычной датой
-    input_date = "15.03.2023 14:30:00"
-    expected_output = "01.03.2023 00:00:00"
+    input_date = "2025-03-20 14:30:00"
+    expected_output = "2025-03-01 00:00:00"
     assert get_first_day_of_month(input_date) == expected_output
 
 
 def test_first_day():
     # Тест с первым числом месяца
-    input_date = "01.05.2023 00:00:00"
-    expected_output = "01.05.2023 00:00:00"
+    input_date = "2025-03-01 14:30:00"
+    expected_output = "2025-03-01 00:00:00"
     assert get_first_day_of_month(input_date) == expected_output
 
 
 def test_last_day():
     # Тест с последним числом месяца
-    input_date = "31.12.2023 23:59:59"
-    expected_output = "01.12.2023 00:00:00"
+    input_date = "2025-03-31 14:30:00"
+    expected_output = "2025-03-01 00:00:00"
     assert get_first_day_of_month(input_date) == expected_output
 
 
@@ -136,7 +136,7 @@ def test_get_operation_for_period_from_excel_valid_data_and_dates():
             "Сумма": [100, 200, 300],
         }
     )
-    actual_result = get_operation_for_period_from_excel(test_file_path, "10.10.2021 10:10:10")
+    actual_result = get_operation_for_period_from_excel(test_file_path, "2021-10-10 10:10:10")
     actual_result["Дата операции"] = actual_result["Дата операции"].dt.strftime("%Y-%m-%dT%H:%M:%S")
     pd.testing.assert_frame_equal(actual_result.reset_index(drop=True), expected_result.reset_index(drop=True))
     remove_test_excel(test_file_path)

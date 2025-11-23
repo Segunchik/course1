@@ -1,7 +1,9 @@
 import json
+import logging
 import os
 from datetime import datetime
 from pathlib import Path
+from pprint import pprint
 from typing import Dict, List
 
 import pandas as pd
@@ -12,6 +14,16 @@ from pandas import DataFrame
 
 load_dotenv()
 API_KEY_EXCHANGE: str | None = os.getenv("API_KEY_EXCHANGE")
+
+logger = logging.getLogger("utils")
+logger.setLevel(logging.DEBUG)
+current_dir = Path(__file__).parent
+root_dir = current_dir.parent
+path = root_dir / "logs/utils.log"
+file_handler = logging.FileHandler(path, mode="w", encoding="utf-8")
+file_formater = logging.Formatter("%(asctime)s - %(name)s - %(levelname)s: %(message)s")
+file_handler.setFormatter(file_formater)
+logger.addHandler(file_handler)
 
 
 def greeting_by_time_of_day() -> str:
@@ -33,7 +45,7 @@ def greeting_by_time_of_day() -> str:
             return "Доброй ночи"
 
     except Exception as er:
-        print(f"Ошибка {er}")
+        logger.error(f"Ошибка {er}")
         return "Не могу определить время суток"
 
 
@@ -43,9 +55,9 @@ def get_first_day_of_month(date_str: str) -> str:
     :param date_str: - дата запроса
     :return: первая дата месяца
     """
-    date = datetime.strptime(date_str, "%d.%m.%Y %H:%M:%S")
+    date = datetime.strptime(date_str, "%Y-%m-%d %H:%M:%S")
     date = date.replace(day=1, hour=0, minute=0, second=0)
-    date_format = str(date.strftime("%d.%m.%Y %H:%M:%S"))
+    date_format = str(date.strftime("%Y-%m-%d %H:%M:%S"))
     return date_format
 
 
@@ -59,15 +71,16 @@ def load_user_settings(file_path: str = "user_settings.json") -> dict:
     root_dir = current_dir.parent
     path = root_dir / file_path
     if not path.exists():
-        print("Файл не найден")
+        logger.error("Файл пользовательскими данными не найден")
         return {}
     else:
         with open(path, "r", encoding="utf-8") as file:
+            logger.info(f"Открыт файл с пользовательскими настройками: {file_path}")
             return dict(json.load(file))
 
 
 def get_operation_for_period_from_excel(
-    file_path: str = "../data/operations.xlsx", curr_date: str = "10.10.2021 10:10:10"
+    file_path: str = "data/operations.xlsx", curr_date: str = "2021-08-20 15:30:00"
 ) -> DataFrame:
     """
     Функция принимает путь к EXCEL файлу и дату и возвращает таблицу с операциями с начала месяца по полученую дату
@@ -75,21 +88,25 @@ def get_operation_for_period_from_excel(
     :param curr_date: необходимая дата
     :return:
     """
+    current_dir = Path(__file__).parent
+    root_dir = current_dir.parent
+    path = root_dir / file_path
     try:
-        df = pd.read_excel(file_path, sheet_name="Отчет по операциям")
+        df = pd.read_excel(path, sheet_name="Отчет по операциям")
+        logger.info(f"Прочитан файл {path}")
         df["Дата операции"] = pd.to_datetime(df["Дата операции"], dayfirst=True)
-        first_day_of_month = datetime.strptime(get_first_day_of_month(curr_date), "%d.%m.%Y %H:%M:%S")
+        first_day_of_month = datetime.strptime(get_first_day_of_month(curr_date), "%Y-%m-%d %H:%M:%S")
 
-        necessary_date = datetime.strptime(curr_date, "%d.%m.%Y %H:%M:%S")
+        necessary_date = datetime.strptime(curr_date, "%Y-%m-%d %H:%M:%S")
         filter_df_by_date = df[(df["Дата операции"] >= first_day_of_month) & (df["Дата операции"] <= necessary_date)]
         return filter_df_by_date
     except FileNotFoundError:
-        print("Файл не найден")
+        logger.error("Файл с операциями не найден")
     except ValueError as er:
-        print(f"Неверный формат даты: {er}")
+        logger.error(f"Неверный формат даты: {er}")
         raise
     except Exception as er:
-        print(f"Ошибка при чтении файла: {str(er)}")
+        logger.error(f"Ошибка при чтении файла: {str(er)}")
 
 
 def get_expenses_by_card(filtered_df: pd.DataFrame) -> list[dict]:
@@ -99,6 +116,13 @@ def get_expenses_by_card(filtered_df: pd.DataFrame) -> list[dict]:
     :param filtered_df: DataFrame c операциями
     :return:
     """
+    if filtered_df is None:
+        raise ValueError("DataFrame is None")
+
+        # Проверка существования столбца
+    if "Номер карты" not in filtered_df.columns:
+        raise ValueError("Столбец 'Номер карты' отсутствует в DataFrame")
+
     try:
         filtered_df["Номер карты"] = filtered_df["Номер карты"].str.replace(r"\D", "", regex=True)
         expenses_df = filtered_df[filtered_df["Сумма операции"] < 0]
@@ -108,6 +132,10 @@ def get_expenses_by_card(filtered_df: pd.DataFrame) -> list[dict]:
             .reset_index()
         )
         result_expenses.columns = ["card_num", "total_expenses", "cashback"]
+        try:
+            result_expenses["total_expenses"] = result_expenses["total_expenses"].round(2)
+        except:
+            return result_expenses.to_dict(orient="records")
         return result_expenses.to_dict(orient="records")
 
     except ValueError as ve:
@@ -197,11 +225,11 @@ def get_stock_prices() -> List[Dict]:
     return stock_prices_list
 
 
-# print(get_first_day_of_month('10.10.2020 10:10:10'))
+# print(get_first_day_of_month('2021-08-20 15:30:00'))
 # print(load_user_settings())
-# get_expenses_by_card(get_operation_for_period_from_excel())
+# pprint(get_expenses_by_card(get_operation_for_period_from_excel()))
 # get_top5_transaction(get_operation_for_period_from_excel())
-# print(get_top5_transaction(get_operation_for_period_from_excel()))
+# pprint(get_top5_transaction(get_operation_for_period_from_excel()))
 # print(get_currency_rate())
 # pprint(get_stock_prices())
 # pprint(load_user_settings())
