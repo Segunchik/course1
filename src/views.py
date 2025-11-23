@@ -1,8 +1,14 @@
 import json
-from pprint import pprint
 
-from src.utils import get_operation_for_period_from_excel, greeting_by_time_of_day, get_expenses_by_card, \
-    get_top5_transaction, get_currency_rate, get_stock_prices
+
+from src.utils import (
+    get_operation_for_period_from_excel,
+    greeting_by_time_of_day,
+    get_expenses_by_card,
+    get_top5_transaction,
+    get_currency_rate,
+    get_stock_prices,
+)
 
 
 def main_info(date_time: str) -> str:
@@ -24,7 +30,7 @@ def main_info(date_time: str) -> str:
         "cards": cards,
         "top_transactions": top_transactions,
         "currency_rates": currency_rates,
-        "stock_prices": stock_prices
+        "stock_prices": stock_prices,
     }
     json_data = json.dumps(data, ensure_ascii=False, indent=4)
     return json_data

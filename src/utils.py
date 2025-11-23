@@ -3,7 +3,6 @@ import logging
 import os
 from datetime import datetime
 from pathlib import Path
-from pprint import pprint
 from typing import Dict, List
 
 import pandas as pd
@@ -132,10 +131,6 @@ def get_expenses_by_card(filtered_df: pd.DataFrame) -> list[dict]:
             .reset_index()
         )
         result_expenses.columns = ["card_num", "total_expenses", "cashback"]
-        try:
-            result_expenses["total_expenses"] = result_expenses["total_expenses"].round(2)
-        except:
-            return result_expenses.to_dict(orient="records")
         return result_expenses.to_dict(orient="records")
 
     except ValueError as ve:
