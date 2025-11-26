@@ -8,7 +8,9 @@ authors = [
 readme = "README.md"
 requires-python = ">=3.13"
 dependencies = [
-    "pytest (>=8.4.2,<9.0.0)"
+    "pytest (>=8.4.2,<9.0.0)",
+    "yfinance (>=0.2.66,<0.3.0)",
+    "python-dotenv (>=1.2.1,<2.0.0)"
 ]
 
 
@@ -18,6 +20,9 @@ build-backend = "poetry.core.masonry.api"
 
 [tool.poetry.group.dev.dependencies]
 pytest = "^8.4.2"
+freezegun = "^1.5.5"
+pytest-cov = "^7.0.0"
+openpyxl = "^3.1.5"
 
 
 [tool.poetry.group.linter.dependencies]
@@ -26,6 +31,10 @@ isort = "^7.0.0"
 black = "^25.9.0"
 mypy = "^1.18.2"
 
+
+
+[tool.poetry.group.lint.dependencies]
+black = "^25.9.0"
 
 [tool.mypy]
 disallow_untyped_defs = true
@@ -37,7 +46,14 @@ exclude = ["venv",".venv"]
 # Максимальная длина строки
 line-length = 119
 # Файлы, которые не нужно форматировать
-exclude = [".git", ".venv"]
+exclude = '''
+(
+    /(
+        \.git     # исключить директорию Git
+    |   \.venv    # исключить виртуальное окружение
+    )
+)
+'''
 
 
 [tool.isort]
